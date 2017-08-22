@@ -1,7 +1,7 @@
 <!doctype html>
 
 <html lang="en">
-  <head>
+<head>
     <meta charset="utf-8">
 
     <title>lol fees... </title>
@@ -18,16 +18,42 @@
     <script type="application/javascript">
       $(function () {
 
-        function getRate (total) {
-          if (total > 100000) {
-            return 0.4
+        function getRate (total, platform) {
+          if (platform === 'roboadvisor') {
+            if (total > 100000) {
+              return 0.4
+            }
+            return 0.5
           }
-          return 0.5
+
+          if (platform === 'diy') {
+            return 0
+          }
+        }
+
+        function isLeapYear (year) {
+          if (year % 4 !== 0) {
+            return false
+          } else if (year % 400 === 0) {
+            return true
+          } else if (year % 100 === 0) {
+            return false
+          } else {
+            return true
+          }
         }
 
         $('.calculate').click(function () {
+          console.clear()
+
           const age = parseInt($('#age').val())
           const dob = moment().add(-age, 'Y')
+
+          const dod = dob.clone().add(85, 'Y')
+          const swr = parseFloat($('#salaryGrowthFactor').val())
+
+          const roboAdvisor = $('#roboAdvisor').val()
+
           const retirementAge = parseInt($('#retirementAge').val())
           let salary = parseInt($('#salary').val())
           const salaryGrowthFactor = parseFloat($('#salaryGrowthFactor').val())
@@ -35,6 +61,12 @@
           const marketRateOfReturn = parseFloat($('#marketRateOfReturn').val())
           let semiMonthlyRrsp = salary * (rrspContribution / 100) / 24
           const semiMonthlyOther = parseInt($('#semiMonthlyOther').val())
+
+          let retirementUpkeep = parseFloat($('#retirementUpkeep').val())
+          let monthlyRetirementUpkeep = retirementUpkeep / 12
+
+          const inflationRate = parseFloat($('#inflationRate').val())
+
           let totalRrsp = parseInt($('#totalRrsp').val())
           let totalRrspFee = 0
           let totalOther = parseInt($('#totalOther').val())
@@ -47,28 +79,50 @@
             `We are targeting a salary growth of ${salaryGrowthFactor}%, market return of ${marketRateOfReturn}%`,
             '']
 
+          let runningRetirementUpkeep = [0]
+          let runningSalary = [salary]
           let runningRrsp = []
           let runningRrspFee = []
           let runningOther = []
           let runningOtherFee = []
 
+          let monthlyRrspFee = 0
+          let monthlyOtherFee = 0
+          // lol my math teacher would be sad
           while (today < retirementDate) {
             today = today.add(1, 'day')
 
             let endOfMonthDate = today.clone().endOf('month').date()
             let date = today.date()
             let month = today.month()
+            let year = today.year()
+            let numberOfDays = 365
+            if (isLeapYear(year)) {
+              numberOfDays = 365
+            }
 
-            totalRrspFee += (totalRrsp * getRate(totalRrsp) / 100 / 365 )
-            totalOtherFee += (totalOther * getRate(totalOther) / 100 / 365 )
+            let dailyRrspFee = (totalRrsp * getRate(totalRrsp, roboAdvisor) / 100 / numberOfDays )
+            totalRrspFee += dailyRrspFee
+            monthlyRrspFee += dailyRrspFee
 
-            totalRrsp += (totalRrsp * (marketRateOfReturn / 100 / 365 ))
-            totalOther += (totalOther * (marketRateOfReturn / 100 / 365 ))
+            let dailyOtherFee = (totalOther * getRate(totalOther, roboAdvisor) / 100 / numberOfDays )
+            totalOtherFee += dailyOtherFee
+            monthlyOtherFee += dailyOtherFee
+
+            totalRrsp += (totalRrsp * (marketRateOfReturn / 100 / numberOfDays ))
+            totalOther += (totalOther * (marketRateOfReturn / 100 / numberOfDays ))
 
             // Payday!
             if (date === 15 || date === endOfMonthDate) {
               totalRrsp += semiMonthlyRrsp
               totalOther += semiMonthlyOther
+            }
+
+            if (date === endOfMonthDate) {
+              totalRrsp -= monthlyRrspFee
+              totalOther -= monthlyOtherFee
+              monthlyRrspFee = 0
+              monthlyOtherFee = 0
             }
 
             if (month === 0 && date === 1) {
@@ -80,11 +134,94 @@
               output.push(`TFSA/Other: ${accounting.formatMoney(totalOther)}. TFSA/Other Fee: ${accounting.formatMoney(totalOtherFee)}`)
               output.push('')
 
+              runningRetirementUpkeep.push(0)
+              runningSalary.push(salary)
               runningRrsp.push(totalRrsp)
               runningRrspFee.push(totalRrspFee)
               runningOther.push(totalOther)
               runningOtherFee.push(totalOtherFee)
 
+            }
+          }
+
+          output.push(
+            `SWR: ${   accounting.formatMoney((totalRrsp + totalOther   ) * 4 / 100)                        }`,
+
+            `RRSP: ${accounting.formatMoney(totalRrsp)}`,
+            `RRSP Fee: ${accounting.formatMoney(totalRrspFee)}`,
+            ``,
+            `Other: ${accounting.formatMoney(totalOther)}`,
+            `Other Fee: ${accounting.formatMoney(totalOtherFee)}`,
+            ``,
+            `Total: ${accounting.formatMoney(totalRrsp + totalOther)}`,
+            `Total Fee: ${accounting.formatMoney(totalRrspFee + totalOtherFee)}`, '')
+
+          $('#rrspTotal').val(accounting.formatMoney(totalRrsp))
+          $('#otherTotal').val(accounting.formatMoney(totalOther))
+          $('#total').val(accounting.formatMoney(totalRrsp + totalOther))
+
+          monthlyRrspFee = 0
+          monthlyOtherFee = 0
+
+          while (today < dod) {
+            today = today.add(1, 'day')
+
+            let endOfMonthDate = today.clone().endOf('month').date()
+            let date = today.date()
+            let month = today.month()
+            let year = today.year()
+            let numberOfDays = 365
+            if (isLeapYear(year)) {
+              numberOfDays = 365
+            }
+
+            let dailyRrspFee = (totalRrsp * getRate(totalRrsp, roboAdvisor) / 100 / numberOfDays )
+            totalRrspFee += dailyRrspFee
+            monthlyRrspFee += dailyRrspFee
+
+            let dailyOtherFee = (totalOther * getRate(totalOther, roboAdvisor) / 100 / numberOfDays )
+            totalOtherFee += dailyOtherFee
+            monthlyOtherFee += dailyOtherFee
+
+            totalRrsp += (totalRrsp * (marketRateOfReturn / 100 / numberOfDays ))
+            totalOther += (totalOther * (marketRateOfReturn / 100 / numberOfDays ))
+
+            // Payday!
+            if (date === 1) {
+              if (totalRrsp > monthlyRetirementUpkeep) {
+                totalRrsp -= monthlyRetirementUpkeep
+              } else if (totalOther > monthlyRetirementUpkeep) {
+                totalOther -= monthlyRetirementUpkeep
+              } else {
+                window.alert(`You ran out of money! it is year ${year}`)
+                break
+              }
+            }
+
+            if (date === endOfMonthDate) {
+              totalRrsp -= monthlyRrspFee
+              totalOther -= monthlyOtherFee
+              monthlyRrspFee = 0
+              monthlyOtherFee = 0
+            }
+
+            if (month === 0 && date === 1) {
+
+              retirementUpkeep += retirementUpkeep * inflationRate / 100
+              monthlyRetirementUpkeep = retirementUpkeep / 12
+
+              output.push(`Happy retirement! it is ${today.format('YYYY')} you are ${today.clone().diff(dob, 'Y')} year old, and you are spending about ${accounting.formatMoney(monthlyRetirementUpkeep)} per month`)
+              output.push(`RRSP: ${accounting.formatMoney(totalRrsp)}. RRSP Fee: ${accounting.formatMoney(totalRrspFee)}`)
+              output.push(`TFSA/Other: ${accounting.formatMoney(totalOther)}. TFSA/Other Fee: ${accounting.formatMoney(totalOtherFee)}`)
+              output.push('')
+
+              runningRetirementUpkeep.push(retirementUpkeep)
+              runningSalary.push(0)
+
+              runningRrsp.push(totalRrsp)
+              runningRrspFee.push(totalRrspFee)
+              runningOther.push(totalOther)
+              runningOtherFee.push(totalOtherFee)
             }
           }
 
@@ -97,29 +234,45 @@
             title: {
               text: 'Investment vs Fees'
             },
+            tooltip: {
+              pointFormat: 'Total: ${point.y:,.2f}'
+            },
+            xAxis: {
+              plotLines: [{
+                color: 'red', // Color value
+                dashStyle: 'longdashdot', // Style of the plot line. Default to solid
+                value: retirementDate.format('YYYY'), // Value of where the line will appear
+                width: 2 // Width of the line
+              }]
+            },
             yAxis: {
               title: {
                 text: 'Total Investment'
               }
             },
-            legend: {
-              layout: 'vertical',
-              align: 'right',
-              verticalAlign: 'middle'
+            chart: {
+              marginBottom: 100
             },
-
+            legend: {
+              align: 'center',
+              verticalAlign: 'bottom',
+              x: 0,
+              y: 0
+            },
             plotOptions: {
               series: {
                 pointStart: moment().year()
               }
             },
-
             series: [
               {name: 'Total RRSP', data: runningRrsp},
               {name: 'Total RRSP Fee', data: runningRrspFee},
               {name: 'Total TFSA/Unregistered', data: runningOther},
-              {name: 'Total TFSA/Unregistered Fee', data: runningOtherFee}]
+              {name: 'Total TFSA/Unregistered Fee', data: runningOtherFee},
+              {name: 'Salary', data: runningSalary},
+              {name: 'Retirement Withdrawal Rate', data: runningRetirementUpkeep}
 
+            ]
           })
 
           output.push(
@@ -130,15 +283,14 @@
             `Other Fee: ${accounting.formatMoney(totalOtherFee)}`,
             ``,
             `Total: ${accounting.formatMoney(totalRrsp + totalOther)}`,
-            `Total Fee: ${accounting.formatMoney(totalRrspFee + totalOtherFee)}`)
+            `Total Fee: ${accounting.formatMoney(totalRrspFee + totalOtherFee)}`, '')
 
-          $('#rrspTotal').val(accounting.formatMoney(totalRrsp))
+          $('#inheritanceRrspTotal').val(accounting.formatMoney(totalRrsp))
+          $('#inheritanceOtherTotal').val(accounting.formatMoney(totalOther))
+          $('#inheritanceTotal').val(accounting.formatMoney(totalRrsp + totalOther))
           $('#rrspFee').val(accounting.formatMoney(totalRrspFee))
-          $('#otherTotal').val(accounting.formatMoney(totalOther))
           $('#otherFee').val(accounting.formatMoney(totalOtherFee))
-          $('#total').val(accounting.formatMoney(totalRrsp + totalOther))
           $('#fee').val(accounting.formatMoney(totalRrspFee + totalOtherFee))
-
           output.map((log) => { console.log(log)})
 
         })
@@ -146,118 +298,196 @@
 
 
     </script>
-  </head>
-  <body>
-    <div class="container">
-      <div class="form-group">
-        <label for="salary">Your current salary ($)</label>
-        <input id="salary" class="form-control form-control-lg" type="number" value="50000">
-      </div>
-      <div class="row">
+    <style>
+        .main-container {
+            padding: 10px;
+        }
+    </style>
+</head>
+<body>
+<div class="main-container">
+    <div class="row">
+
         <div class="col">
-          <div class="form-group">
-            <label for="totalRrsp">Your current RRSP Savings ($)</label>
-            <input id="totalRrsp" class="form-control form-control-lg" type="number" value="0">
-          </div>
+            <div class="form-group">
+                <label for="salary">Your current salary ($)</label>
+                <input id="salary" class="form-control form-control-lg" type="number" value="50000">
+            </div>
         </div>
         <div class="col">
-          <div class="form-group">
-            <label for="totalOther">Your current TFSA/Unregistered Savings ($)</label>
-            <input id="totalOther" class="form-control form-control-lg" type="number" value="0">
-          </div>
+            <div class="form-group">
+                <label for="salaryGrowthFactor">Salary Growth Factor (%)</label>
+                <input id="salaryGrowthFactor" class="form-control form-control-lg" type="number" value="2.6">
+            </div>
         </div>
-      </div>
-      <div class="row">
-        <div class="col">
-          <div class="form-group">
-            <label for="salaryGrowthFactor">Salary Growth Factor (%)</label>
-            <input id="salaryGrowthFactor" class="form-control form-control-lg" type="number" value="2.6">
-          </div>
-        </div>
-        <div class="col">
-          <div class="form-group">
-            <label for="marketRateOfReturn">Market Growth Factor (%)</label>
-            <input id="marketRateOfReturn" class="form-control form-control-lg" type="number" value="4">
-          </div>
-        </div>
-      </div>
-      <div class="row">
-        <div class="col">
-          <div class="form-group">
-            <label for="semiMonthlyOther">TFSA/Unregistered contribution per pay ($)</label>
-            <input id="semiMonthlyOther" class="form-control form-control-lg" type="number" value="500">
-          </div>
-        </div>
-        <div class="col">
-          <div class="form-group">
-            <label for="rrspContribution">RRSP Contribution (%)</label>
-            <input id="rrspContribution" class="form-control form-control-lg" type="number" value="18">
-          </div>
-        </div>
-      </div>
-      <div class="row">
-        <div class="col">
-          <div class="form-group">
-            <label for="age">Your Age</label>
-            <input id="age" class="form-control form-control-lg" type="number" value="30">
-          </div>
-        </div>
-        <div class="col">
-          <div class="form-group">
-            <label for="retirementAge">Retirement Age</label>
-            <input id="retirementAge" class="form-control form-control-lg" type="number" value="65">
-          </div>
-        </div>
-      </div>
-      <button type="submit" class="btn btn-outline-primary calculate">Calculate</button>
+    </div>
+    <div class="row">
 
 
-      <div class="row">
         <div class="col">
-          <div class="form-group">
-            <label for="rrspTotal">RRSP</label>
-            <input id="rrspTotal" class="form-control form-control-lg" type="text">
-          </div>
+            <div class="form-group">
+                <label for="totalRrsp">Your current RRSP Savings ($)</label>
+                <input id="totalRrsp" class="form-control form-control-lg" type="number" value="0">
+            </div>
         </div>
         <div class="col">
-          <div class="form-group">
-            <label for="rrspFee">RRSP Fee</label>
-            <input id="rrspFee" class="form-control form-control-lg" type="text">
-          </div>
-        </div>
-      </div>
-      <div class="row">
-        <div class="col">
-          <div class="form-group">
-            <label for="otherTotal">TFSA/Unregistered</label>
-            <input id="otherTotal" class="form-control form-control-lg" type="text">
-          </div>
+            <div class="form-group">
+                <label for="totalOther">Your current TFSA/Unregistered Savings ($)</label>
+                <input id="totalOther" class="form-control form-control-lg" type="number" value="0">
+            </div>
         </div>
         <div class="col">
-          <div class="form-group">
-            <label for="otherFee">TFSA/Unregistered Fee</label>
-            <input id="otherFee" class="form-control form-control-lg" type="text">
-          </div>
-        </div>
-      </div>
-      <div class="row">
-        <div class="col">
-          <div class="form-group">
-            <label for="total">Total</label>
-            <input id="total" class="form-control form-control-lg" type="text">
-          </div>
+            <div class="form-group">
+                <label for="rrspContribution">RRSP Contribution (%)</label>
+                <input id="rrspContribution" class="form-control form-control-lg" type="number" value="18">
+            </div>
         </div>
         <div class="col">
-          <div class="form-group">
-            <label for="fee">Total Fee</label>
-            <input id="fee" class="form-control form-control-lg" type="text">
-          </div>
+            <div class="form-group">
+                <label for="semiMonthlyOther">TFSA/Unregistered contribution per pay ($)</label>
+                <input id="semiMonthlyOther" class="form-control form-control-lg" type="number" value="500">
+            </div>
         </div>
-      </div>
+    </div>
+    <div class="row">
 
+        <div class="col">
+            <div class="form-group">
+                <label for="marketRateOfReturn">Market Growth Factor (%)</label>
+                <input id="marketRateOfReturn" class="form-control form-control-lg" type="number" value="5">
+            </div>
+        </div>
+        <div class="col">
+            <div class="form-group">
+                <label for="safeWithdrawRate">Safe Withdraw Rate (%)</label>
+                <input id="safeWithdrawRate" class="form-control form-control-lg" type="number" value="4">
+            </div>
+        </div>
+        <div class="col">
+            <div class="form-group">
+                <label for="inflationRate">Inflation (%)</label>
+                <input id="inflationRate" class="form-control form-control-lg" type="number" value="2">
+            </div>
+        </div>
+        <div class="col">
+            <div class="form-group">
+                <label for="roboAdvisor">Use a Robo-advisor?</label>
+                <select id="roboAdvisor" class="custom-select form-control form-control-lg">
+                    <option value="roboadvisor">Yes! Use Robo-advisor</option>
+                    <option value="diy">DIY</option>
+                </select>
 
-      <div id="chart-container"></div>
+            </div>
+        </div>
 
     </div>
-  </body>
+    <div class="row">
+        <div class="col">
+            <div class="form-group">
+                <label for="age">Your Age</label>
+                <input id="age" class="form-control form-control-lg" type="number" value="30">
+            </div>
+        </div>
+        <div class="col">
+            <div class="form-group">
+                <label for="retirementAge">Retirement Age</label>
+                <input id="retirementAge" class="form-control form-control-lg" type="number" value="65">
+            </div>
+        </div>
+        <div class="col">
+            <div class="form-group">
+                <label for="retirementUpkeep">Yearly spending post retirement</label>
+                <input id="retirementUpkeep" class="form-control form-control-lg" type="number" value="50000">
+            </div>
+        </div>
+
+        <div class="col">
+            <div class="form-group">
+                <label for="lifeExpectancy">Life expectancy</label>
+                <input id="lifeExpectancy" class="form-control form-control-lg" type="number" value="85">
+            </div>
+        </div>
+
+
+    </div>
+    <button type="submit" class="btn btn-outline-primary calculate">Calculate</button>
+
+
+    <h3>At Retirement</h3>
+    <div class="row">
+        <div class="col">
+            <div class="form-group">
+                <label for="rrspTotal">RRSP</label>
+                <input id="rrspTotal" class="form-control form-control-lg" type="text">
+            </div>
+        </div>
+
+        <div class="col">
+            <div class="form-group">
+                <label for="otherTotal">TFSA/Unregistered</label>
+                <input id="otherTotal" class="form-control form-control-lg" type="text">
+            </div>
+        </div>
+
+        <div class="col">
+            <div class="form-group">
+                <label for="total">Total</label>
+                <input id="total" class="form-control form-control-lg" type="text">
+            </div>
+        </div>
+    </div>
+
+    <h3>Inheritance!</h3>
+    <div class="row">
+        <div class="col">
+            <div class="form-group">
+                <label for="inheritanceRrspTotal">RRSP</label>
+                <input id="inheritanceRrspTotal" class="form-control form-control-lg" type="text">
+            </div>
+        </div>
+
+        <div class="col">
+            <div class="form-group">
+                <label for="inheritanceOtherTotal">TFSA/Unregistered</label>
+                <input id="inheritanceOtherTotal" class="form-control form-control-lg" type="text">
+            </div>
+        </div>
+
+        <div class="col">
+            <div class="form-group">
+                <label for="inheritanceTotal">Total</label>
+                <input id="inheritanceTotal" class="form-control form-control-lg" type="text">
+            </div>
+        </div>
+    </div>
+
+    <h3>Lifetime</h3>
+    <div class="row">
+        <div class="col">
+            <div class="form-group">
+                <label for="rrspFee">RRSP Fee</label>
+                <input id="rrspFee" class="form-control form-control-lg" type="text">
+            </div>
+        </div>
+
+        <div class="col">
+            <div class="form-group">
+                <label for="otherFee">TFSA/Unregistered Fee</label>
+                <input id="otherFee" class="form-control form-control-lg" type="text">
+            </div>
+        </div>
+
+        <div class="col">
+            <div class="form-group">
+                <label for="fee">Total Fee</label>
+                <input id="fee" class="form-control form-control-lg" type="text">
+            </div>
+        </div>
+    </div>
+
+
+    <div id="chart-container"></div>
+
+</div>
+</body>
 </html>
