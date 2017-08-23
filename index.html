@@ -50,7 +50,7 @@
           const dob = moment().add(-age, 'Y')
 
           const dod = dob.clone().add(85, 'Y')
-          const swr = parseFloat($('#salaryGrowthFactor').val())
+          const swr = parseFloat($('#safeWithdrawRate').val())
 
           const roboAdvisor = $('#roboAdvisor').val()
 
@@ -144,8 +144,10 @@
             }
           }
 
+          window.alert(`Your Starting Safe Withdraw Amount is: ${accounting.formatMoney((totalRrsp + totalOther) * swr / 100)}`)
+
           output.push(
-            `SWR: ${   accounting.formatMoney((totalRrsp + totalOther   ) * 4 / 100)                        }`,
+            `SWR: ${accounting.formatMoney((totalRrsp + totalOther) * swr / 100)}`,
 
             `RRSP: ${accounting.formatMoney(totalRrsp)}`,
             `RRSP Fee: ${accounting.formatMoney(totalRrspFee)}`,
