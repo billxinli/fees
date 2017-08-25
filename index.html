@@ -75,7 +75,7 @@
           let retirementDate = dob.clone().add(retirementAge, 'Y')
           let output = [
             `You were born on ${dob.format('YYYY')}, and you are ~${age} years old! You would like to retire at the age of ${retirementAge}, which is ~${retirementAge - age} years away`,
-            `You are making ${accounting.formatMoney(salary)} per year, and contributing ${accounting.formatMoney(semiMonthlyRrsp)} per month to your RRSP, at ${rrspContribution}%. You are also saving ${accounting.formatMoney(semiMonthlyOther)} per pay on top of your RRSP contribution`,
+            `You are making ${accounting.formatMoney(salary)} per year, and contributing ${accounting.formatMoney(semiMonthlyRrsp)} per pay to your RRSP, at ${rrspContribution}%. You are also saving ${accounting.formatMoney(semiMonthlyOther)} per pay on top of your RRSP contribution`,
             `We are targeting a salary growth of ${salaryGrowthFactor}%, market return of ${marketRateOfReturn}%`,
             '']
 
