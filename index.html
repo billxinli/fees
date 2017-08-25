@@ -144,7 +144,7 @@
             }
           }
 
-          window.alert(`Your Starting Safe Withdraw Amount is: ${accounting.formatMoney((totalRrsp + totalOther) * swr / 100)}`)
+          $('#actualRetirementUpKeep').html(`Your Starting Annual Safe Withdraw Amount is: ${accounting.formatMoney((totalRrsp + totalOther) * swr / 100)}`)
 
           output.push(
             `SWR: ${accounting.formatMoney((totalRrsp + totalOther) * swr / 100)}`,
@@ -400,6 +400,7 @@
             <div class="form-group">
                 <label for="retirementUpkeep">Yearly spending post retirement</label>
                 <input id="retirementUpkeep" class="form-control form-control-lg" type="number" value="50000">
+                <p id="actualRetirementUpKeep"></p>
             </div>
         </div>
 
