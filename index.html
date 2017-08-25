@@ -46,10 +46,12 @@
         $('.calculate').click(function () {
           console.clear()
 
+          const lifeExpectancy = parseInt($('#lifeExpectancy').val())
+
           const age = parseInt($('#age').val())
           const dob = moment().add(-age, 'Y')
 
-          const dod = dob.clone().add(85, 'Y')
+          const dod = dob.clone().add(lifeExpectancy, 'Y')
           const swr = parseFloat($('#safeWithdrawRate').val())
 
           const roboAdvisor = $('#roboAdvisor').val()
